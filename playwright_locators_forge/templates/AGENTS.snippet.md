@@ -8,8 +8,9 @@
 ## Locators for Playwright / Playwright MCP
 
 This repo maintains a locator map under `locators/` via
-[playwright-locators-forge](https://github.com/) — one markdown file per
-page/component, ranked by `locator-priority.yaml` at the repo root.
+[playwright-locators-forge](https://github.com/sritajkumarpatel/playwrightLocatorsForge)
+— one markdown file per page/component, ranked by `locator-priority.yaml`
+at the repo root.
 
 **Before using Playwright MCP to inspect a page or write a test:**
 

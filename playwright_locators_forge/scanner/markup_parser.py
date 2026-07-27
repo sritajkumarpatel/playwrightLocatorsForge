@@ -5,12 +5,17 @@ Two entry points, `parse_html` and `parse_jsx`, both return a flat list of
 shape, so adapters never need to know tree-sitter node types directly --
 they just pick the right parser for the markup they extracted.
 
-Angular templates, Vue `<template>` blocks, and plain `.html` files all go
-through `parse_html`; React/Preact JSX goes through `parse_jsx`. Angular's
-bracket/paren attribute syntax (`[attr.data-testid]="expr"`, `*ngIf="x"`,
-`(click)="x"`) tokenizes fine as ordinary HTML attribute names -- HTML5
-allows any character in an attribute name except whitespace, `"`, `'`,
-`>`, `/`, `=` -- so no Angular-specific grammar is needed here.
+Angular templates, Vue `<template>` blocks, Svelte markup, and plain
+`.html` files all go through `parse_html`; React/Preact JSX goes through
+`parse_jsx`. Angular's bracket/paren attribute syntax
+(`[attr.data-testid]="expr"`, `*ngIf="x"`, `(click)="x"`) tokenizes fine
+as ordinary HTML attribute names -- HTML5 allows any character in an
+attribute name except whitespace, `"`, `'`, `>`, `/`, `=` -- so no
+Angular-specific grammar is needed here. Two extra helpers,
+`extract_top_level_block` and `strip_top_level_blocks`, handle the two
+ways a framework's real markup is embedded among other content (Vue's
+named `<template>` wrapper vs. Svelte's un-wrapped markup alongside
+`<script>`/`<style>`) before handing off to `parse_html`.
 """
 
 from __future__ import annotations
