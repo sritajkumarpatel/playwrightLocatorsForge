@@ -1,6 +1,6 @@
 """Every framework adapter implements this interface. Adding support for a
-new framework (Svelte, Blazor, plain Jinja templates, ...) means writing
-one adapter, not touching the scanner, renderer, or CLI.
+new framework (Blazor, plain Jinja templates, ...) means writing one
+adapter, not touching the scanner, renderer, or CLI.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from playwright_locators_forge.models import PageResult
+from playwright_locators_forge.scanner.markup_parser import RawNode
 
 
 class FrameworkAdapter(ABC):
@@ -35,3 +36,24 @@ def glob_files(root: Path, include: list[str], exclude: list[str]) -> list[Path]
         return any(fnmatch.fnmatch(rel, pattern) for pattern in exclude)
 
     return sorted(p for p in matched if p.is_file() and not is_excluded(p))
+
+
+def element_name(node: RawNode, content_hash: str, seen: set[str]) -> str:
+    """Pick a stable element name, mutating `seen` to register it.
+
+    Falls back to `{tag}_{content_hash[:6]}` rather than a positional
+    index: an index-based name (`button_3`) shifts for every element
+    whose *neighbors* change, breaking `forge resolve` lookups and
+    producing noisy diffs for edits that didn't touch that element at
+    all. A hash of the element's own tag/attrs/text only changes when
+    the element itself does. Collisions (two genuinely identical
+    elements in one file) are disambiguated with a numeric suffix.
+    """
+    base = node.attrs.get("data-testid") or node.attrs.get("id") or f"{node.tag}_{content_hash[:6]}"
+    name = base
+    suffix = 2
+    while name in seen:
+        name = f"{base}_{suffix}"
+        suffix += 1
+    seen.add(name)
+    return name

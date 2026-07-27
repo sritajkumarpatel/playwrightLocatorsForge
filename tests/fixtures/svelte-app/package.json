@@ -1,0 +1,6 @@
+{
+  "name": "svelte-fixture",
+  "dependencies": {
+    "svelte": "^4.0.0"
+  }
+}

@@ -1,7 +1,7 @@
 # playwright-locators-forge
 
-Scans a frontend repo — React, Angular, Vue, or plain HTML — and builds a
-maintained, priority-ranked **locator map** (`locators/*.md`) that agents
+Scans a frontend repo — React, Angular, Vue, Svelte, or plain HTML — and
+builds a maintained, priority-ranked **locator map** (`locators/*.md`) that agents
 and test authors can use instead of re-discovering locators from a live
 DOM every time they drive Playwright (or Playwright MCP).
 
@@ -99,10 +99,19 @@ sibling package a monorepo pulls in), not as a one-off local script:
 
 1. **Adapters** (`playwright_locators_forge/adapters/`) turn
    framework-specific source into plain markup:
-   - React: JSX inline in `.tsx`/`.jsx`
+   - React: JSX inline in `.tsx`/`.jsx`. A capitalized component tag
+     (`<Button>`) is only included when it carries an explicit
+     identity attribute (`data-testid`/`id`/`aria-label`/`name`/`role`)
+     — otherwise every design-system wrapper (`<Card>`, `<Flex>`, ...)
+     would show up as a "locator" with nothing to actually locate.
    - Angular: external `templateUrl` files, or inline `template:` strings
      in `@Component({...})`
-   - Vue: the `<template>` block of `.vue` SFCs
+   - Vue: the root-level `<template>` block of `.vue` SFCs, extracted by
+     walking the parse tree so a nested `<template #slotName>` doesn't
+     get mistaken for the end of the outer template
+   - Svelte: everything except top-level `<script>`/`<style>` blocks
+     (which are blanked out, not deleted, so line numbers of the
+     remaining markup still match the source file)
    - Plain HTML (also works for server-rendered templates like
      Jinja/ERB/Blade, since directives outside tag attributes are ignored)
 2. A shared **tree-sitter scanner** walks that markup and extracts every
@@ -111,7 +120,10 @@ sibling package a monorepo pulls in), not as a one-off local script:
    visible text, a class-based CSS selector, and an XPath fallback.
    Attributes that are runtime bindings (Angular `[attr.x]`, Vue `:x`,
    JSX `{expr}`) are kept but flagged `dynamic: yes` — they can't be
-   trusted as static locators without a live check.
+   trusted as static locators without a live check. Each element's name
+   falls back to `{tag}_{contentHash}` (not a position-based index), so
+   inserting an unrelated sibling above an element doesn't rename it and
+   break existing `forge resolve` lookups.
 3. **`locator-priority.yaml`** (the one file meant to be hand-edited)
    defines the global rank order. `forge rank` re-sorts every already-
    scanned element against it instantly, with no re-parsing of source.
@@ -124,7 +136,7 @@ sibling package a monorepo pulls in), not as a one-off local script:
 
 ```
 forge init                                  # scaffold config + AGENTS.md snippet in target repo
-forge scan [--framework react|angular|vue|html]
+forge scan [--framework react|angular|vue|svelte|html]
 forge rank                                  # re-rank existing results against locator-priority.yaml
 forge resolve --page <route-or-file> --element <name>
 forge check                                 # non-zero exit if any element drifted since last scan
@@ -139,15 +151,27 @@ All commands accept `--root <path>` (default: current directory).
 - **`locator-priority.yaml`** — the rank order (see above). This is the
   single knob for "prefer ids over roles" style team preferences.
 
+## Running the tests
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+Covers the scanner (parsing, dynamic-binding detection, ranking —
+including a regression test for dynamic candidates never outranking
+static ones), every adapter, markdown render/resolve round-tripping and
+stale-drift detection, and the CLI (notably `--root` working both before
+and after the subcommand).
+
 ## Current scope / first-draft limitations
 
 - Angular decorator parsing uses regex over `@Component({...})`, not a
   full TypeScript AST — fine for standard boilerplate, may miss
   programmatically-constructed decorator metadata.
-- Vue SFC `<template>` extraction is a regex block match; nested
-  `<template>` tags inside slots are not specially handled.
-- Svelte and other frameworks aren't implemented yet — add a new
-  `FrameworkAdapter` in `adapters/` (see `adapters/base.py`) to extend.
+- Frameworks beyond React/Angular/Vue/Svelte/HTML (Blazor, plain Jinja,
+  ...) aren't implemented yet — add a new `FrameworkAdapter` in
+  `adapters/` (see `adapters/base.py`) to extend.
 - `forge check` compares against the hash stored the last time `forge
   scan` ran, not against git history directly — run it after `forge
   scan` in CI, not as a standalone git-diff check.

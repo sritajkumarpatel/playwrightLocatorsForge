@@ -1,3 +1,16 @@
+"""Svelte support.
+
+Unlike Vue, a Svelte component has no wrapping `<template>` -- markup
+sits at the top level alongside `<script>`/`<style>` blocks. So instead
+of extracting one named block (`extract_top_level_block`), this strips
+the `<script>`/`<style>` blocks out (`strip_top_level_blocks`) and parses
+whatever's left as HTML. Svelte control-flow blocks (`{#if}`, `{#each}`,
+`{:else}`, ...) and bindings (`bind:value`, `on:click`, `class:active`)
+tokenize fine as HTML text/attribute syntax -- they don't need special
+handling for locator extraction, the same way Angular's `[x]`/`(x)`
+syntax doesn't.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,27 +19,22 @@ from playwright_locators_forge.adapters.base import FrameworkAdapter, element_na
 from playwright_locators_forge.models import Element, PageResult
 from playwright_locators_forge.scanner.hashing import element_hash
 from playwright_locators_forge.scanner.locator_types import build_candidates
-from playwright_locators_forge.scanner.markup_parser import parse_html
+from playwright_locators_forge.scanner.markup_parser import parse_html, strip_top_level_blocks
 
 
-class HtmlAdapter(FrameworkAdapter):
-    """Fallback adapter for plain HTML, or any framework not yet supported
-    with a dedicated adapter -- server-rendered templates (Jinja, ERB,
-    Blade, ...) that emit plain HTML tags work fine here too, since
-    template directives outside of tag attributes are simply ignored by
-    the HTML walker.
-    """
-
-    name = "html"
+class SvelteAdapter(FrameworkAdapter):
+    name = "svelte"
 
     def discover_files(self, root: Path, include: list[str], exclude: list[str]) -> list[Path]:
         files = glob_files(root, include, exclude)
-        return [f for f in files if f.suffix in (".html", ".htm")]
+        return [f for f in files if f.suffix == ".svelte"]
 
     def extract(self, root: Path, file_path: Path, test_id_attrs: list[str]) -> PageResult:
         source = file_path.read_text(encoding="utf-8", errors="replace")
         rel_path = file_path.relative_to(root).as_posix()
-        raw_nodes = parse_html(source)
+
+        markup = strip_top_level_blocks(source, {"script", "style"})
+        raw_nodes = parse_html(markup)
 
         elements: list[Element] = []
         seen_names: set[str] = set()

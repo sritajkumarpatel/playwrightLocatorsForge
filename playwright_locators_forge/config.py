@@ -18,7 +18,7 @@ from pathlib import Path
 import yaml
 
 DEFAULT_TEST_ID_ATTRS = ["data-testid", "data-test", "data-cy", "data-qa"]
-DEFAULT_INCLUDE = ["**/*.tsx", "**/*.jsx", "**/*.html", "**/*.vue"]
+DEFAULT_INCLUDE = ["**/*.tsx", "**/*.jsx", "**/*.html", "**/*.vue", "**/*.svelte"]
 DEFAULT_EXCLUDE = ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.spec.*", "**/*.test.*"]
 
 DEFAULT_PRIORITY = {

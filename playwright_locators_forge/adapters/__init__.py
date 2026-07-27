@@ -2,12 +2,14 @@ from playwright_locators_forge.adapters.angular import AngularAdapter
 from playwright_locators_forge.adapters.base import FrameworkAdapter
 from playwright_locators_forge.adapters.html import HtmlAdapter
 from playwright_locators_forge.adapters.react import ReactAdapter
+from playwright_locators_forge.adapters.svelte import SvelteAdapter
 from playwright_locators_forge.adapters.vue import VueAdapter
 
 ADAPTERS: dict[str, type[FrameworkAdapter]] = {
     "react": ReactAdapter,
     "angular": AngularAdapter,
     "vue": VueAdapter,
+    "svelte": SvelteAdapter,
     "html": HtmlAdapter,
 }
 

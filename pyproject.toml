@@ -15,8 +15,14 @@ dependencies = [
     "PyYAML>=6.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 forge = "playwright_locators_forge.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["playwright_locators_forge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

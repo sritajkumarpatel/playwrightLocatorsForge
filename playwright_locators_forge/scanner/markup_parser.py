@@ -24,7 +24,15 @@ from tree_sitter import Language, Parser
 
 # Tags that are almost never meaningful test targets on their own; skip them
 # to keep output focused on interactive/identifiable elements.
-_SKIP_TAGS = {"script", "style", "html", "head", "meta", "link", "br", "hr"}
+_SKIP_TAGS = {"script", "style", "html", "head", "body", "meta", "link", "br", "hr", "template"}
+
+# Attributes that mean "a human is relying on this to find the element",
+# regardless of what a capitalized JSX component actually renders. Used
+# to decide whether to include a custom component tag (<Button>,
+# <TextField>, ...) at all -- without this gate, every design-system
+# wrapper (<Card>, <Flex>, <Container>, ...) would show up as a "locator"
+# even though nothing about it is identifiable.
+_IDENTITY_ATTRS = {"data-testid", "data-test", "data-cy", "data-qa", "id", "aria-label", "name", "role"}
 
 
 @lru_cache(maxsize=None)
@@ -89,6 +97,7 @@ def parse_html(source: str) -> list[RawNode]:
                         or "{{" in value
                     ):
                         dynamic_attrs.add(name)
+                is_raw_text_tag = tag.lower() in ("script", "style")
                 if tag and tag.lower() not in _SKIP_TAGS:
                     text_parts = [
                         _decode(source_bytes, c).strip()
@@ -104,11 +113,76 @@ def parse_html(source: str) -> list[RawNode]:
                             dynamic_attrs=dynamic_attrs,
                         )
                     )
+                if is_raw_text_tag:
+                    # Never descend into <script>/<style> content. The
+                    # HTML5 tokenizer treats these as raw text already,
+                    # but Vue/Svelte embed real JS here (comparisons like
+                    # `if (x < y)` etc.) -- not worth trusting the grammar
+                    # to never misparse that as a tag.
+                    return
         for child in node.children:
             walk(child)
 
     walk(tree.root_node)
     return nodes
+
+
+def _top_level_element_tag(source_bytes: bytes, node) -> str | None:
+    if node.type != "element":
+        return None
+    start_tag = next((c for c in node.children if c.type == "start_tag"), None)
+    if start_tag is None:
+        return None
+    tag_name_node = next((c for c in start_tag.children if c.type == "tag_name"), None)
+    if tag_name_node is None:
+        return None
+    return _decode(source_bytes, tag_name_node).lower()
+
+
+def extract_top_level_block(source: str, tag_name: str) -> tuple[str, int] | None:
+    """Return (inner_markup, line_offset) for the first root-level element
+    with the given tag name, or None if it's not present.
+
+    Used where real markup is wrapped in one named tag among siblings --
+    e.g. a Vue SFC's `<template>...</template>` next to `<script>`/
+    `<style>`. Walking the actual parse tree (rather than a regex
+    boundary match) means a *nested* `<template>` used for a named slot
+    doesn't get mistaken for the end of the outer one.
+    """
+    source_bytes = source.encode("utf-8")
+    tree = _html_parser().parse(source_bytes)
+    for node in tree.root_node.children:
+        if _top_level_element_tag(source_bytes, node) != tag_name:
+            continue
+        start_tag = next(c for c in node.children if c.type == "start_tag")
+        end_tag = next((c for c in node.children if c.type == "end_tag"), None)
+        inner_start = start_tag.end_byte
+        inner_end = end_tag.start_byte if end_tag is not None else node.end_byte
+        inner = source_bytes[inner_start:inner_end].decode("utf-8", errors="replace")
+        line_offset = source_bytes[:inner_start].count(b"\n")
+        return inner, line_offset
+    return None
+
+
+def strip_top_level_blocks(source: str, tag_names: set[str]) -> str:
+    """Blank out root-level elements with the given tag names, replacing
+    their content with spaces (newlines preserved) so every other line's
+    number is unaffected by the removal.
+
+    Used where the real markup is "everything except these blocks" rather
+    than wrapped in one named tag -- e.g. a Svelte component, where
+    `<script>`/`<style>` sit at the top level alongside plain markup with
+    no wrapping `<template>`.
+    """
+    source_bytes = source.encode("utf-8")
+    tree = _html_parser().parse(source_bytes)
+    mutable = bytearray(source_bytes)
+    for node in tree.root_node.children:
+        if _top_level_element_tag(source_bytes, node) in tag_names:
+            for i in range(node.start_byte, node.end_byte):
+                if mutable[i] != 0x0A:
+                    mutable[i] = 0x20
+    return mutable.decode("utf-8", errors="replace")
 
 
 def parse_jsx(source: str) -> list[RawNode]:
@@ -157,7 +231,7 @@ def parse_jsx(source: str) -> list[RawNode]:
             opening = next((c for c in node.children if c.type == "jsx_opening_element"), None)
             if opening is not None:
                 tag, attrs, dynamic_attrs = extract_opening(opening)
-                if tag and tag[0].islower() and tag.lower() not in _SKIP_TAGS:
+                if tag and tag.lower() not in _SKIP_TAGS and (tag[0].islower() or _IDENTITY_ATTRS & attrs.keys()):
                     nodes.append(
                         RawNode(
                             tag=tag,
@@ -169,7 +243,7 @@ def parse_jsx(source: str) -> list[RawNode]:
                     )
         elif node.type == "jsx_self_closing_element":
             tag, attrs, dynamic_attrs = extract_opening(node)
-            if tag and tag[0].islower() and tag.lower() not in _SKIP_TAGS:
+            if tag and tag.lower() not in _SKIP_TAGS and (tag[0].islower() or _IDENTITY_ATTRS & attrs.keys()):
                 nodes.append(
                     RawNode(
                         tag=tag,

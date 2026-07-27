@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from playwright_locators_forge.adapters.base import FrameworkAdapter, glob_files
+from playwright_locators_forge.adapters.base import FrameworkAdapter, element_name, glob_files
 from playwright_locators_forge.models import Element, PageResult
 from playwright_locators_forge.scanner.hashing import element_hash
 from playwright_locators_forge.scanner.locator_types import build_candidates
@@ -22,13 +22,11 @@ class ReactAdapter(FrameworkAdapter):
         rel_path = file_path.relative_to(root).as_posix()
 
         elements: list[Element] = []
-        for idx, node in enumerate(raw_nodes):
+        seen_names: set[str] = set()
+        for node in raw_nodes:
             candidates = build_candidates(node, test_id_attrs)
-            name = (
-                node.attrs.get("data-testid")
-                or node.attrs.get("id")
-                or f"{node.tag}_{idx}"
-            )
+            content_hash = element_hash(node)
+            name = element_name(node, content_hash, seen_names)
             elements.append(
                 Element(
                     name=name,
@@ -38,7 +36,7 @@ class ReactAdapter(FrameworkAdapter):
                     attrs=node.attrs,
                     text=node.text,
                     candidates=candidates,
-                    content_hash=element_hash(node),
+                    content_hash=content_hash,
                 )
             )
 

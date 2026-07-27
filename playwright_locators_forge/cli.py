@@ -141,27 +141,59 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_root_arg(p: argparse.ArgumentParser, *, is_top_level: bool) -> None:
+    """Add --root to a parser.
+
+    Deliberately does NOT use argparse's `parents=` mechanism to share one
+    action object across the top-level parser and every subparser: that
+    seems convenient, but `ArgumentParser.set_defaults()` mutates
+    `action.default` on every action it finds with a matching `dest` in
+    `self._actions` -- so if the same Action instance is registered on
+    both the main parser and a subparser, calling `set_defaults` on the
+    main parser silently overwrites the subparser's default too (they're
+    the same object). That corrupted `--root` back to "." even when a
+    subparser instance's own args never referenced it. Giving each parser
+    its own independently-constructed action sidesteps that entirely.
+    """
+    p.add_argument(
+        "--root",
+        default="." if is_top_level else argparse.SUPPRESS,
+        help="Repo root to operate on (default: current directory)",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
+    # --root needs to work both before AND after the subcommand
+    # (`forge --root X scan` and `forge scan --root X`) -- argparse hands
+    # remaining argv to the subparser once it sees the subcommand token,
+    # so the top-level parser alone isn't enough for the second form.
+    # Subparser copies default to SUPPRESS so an *unset* --root there
+    # doesn't clobber a value already parsed at the top level.
     parser = argparse.ArgumentParser(prog="forge", description="Playwright Locators Forge")
-    parser.add_argument("--root", default=".", help="Repo root to operate on (default: current directory)")
+    _add_root_arg(parser, is_top_level=True)
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_scan = sub.add_parser("scan", help="Scan the repo and (re)generate locators/*.md")
+    _add_root_arg(p_scan, is_top_level=False)
     p_scan.add_argument("--framework", default=None, help="Override auto-detected framework")
     p_scan.set_defaults(func=cmd_scan)
 
     p_rank = sub.add_parser("rank", help="Re-rank existing results against locator-priority.yaml")
+    _add_root_arg(p_rank, is_top_level=False)
     p_rank.set_defaults(func=cmd_rank)
 
     p_resolve = sub.add_parser("resolve", help="Print the top-ranked locator for one element")
+    _add_root_arg(p_resolve, is_top_level=False)
     p_resolve.add_argument("--page", required=True, help="Route hint, source file, or output .md path")
     p_resolve.add_argument("--element", required=True, help="Element name as shown in the locators .md file")
     p_resolve.set_defaults(func=cmd_resolve)
 
     p_check = sub.add_parser("check", help="Fail if any element drifted from source since the last scan")
+    _add_root_arg(p_check, is_top_level=False)
     p_check.set_defaults(func=cmd_check)
 
     p_init = sub.add_parser("init", help="Drop config templates + AGENTS.md snippet into this repo")
+    _add_root_arg(p_init, is_top_level=False)
     p_init.add_argument("--force", action="store_true", help="Overwrite existing config files")
     p_init.set_defaults(func=cmd_init)
 
