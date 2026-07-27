@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "playwright-locators-forge"
+version = "0.1.0"
+description = "Scans a frontend repo (React, Angular, Vue, plain HTML) and builds a maintained, priority-ranked locator map that agents can hand to Playwright/Playwright MCP instead of re-discovering locators from a live DOM."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "tree-sitter>=0.23",
+    "tree-sitter-html>=0.23",
+    "tree-sitter-typescript>=0.23",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+forge = "playwright_locators_forge.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["playwright_locators_forge"]

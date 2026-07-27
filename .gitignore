@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Locally-scanned fixture output (fixtures/*.md source is committed, generated output isn't)
+tests/fixtures/*/locators/

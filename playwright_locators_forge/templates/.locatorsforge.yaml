@@ -1,0 +1,34 @@
+# Config for playwright-locators-forge. Copy this into your repo root
+# (done automatically by `forge init`) and adjust to your project layout.
+
+# auto | react | angular | vue | html
+# "auto" detects from package.json/angular.json; pin it explicitly in a
+# monorepo with more than one frontend stack.
+framework: auto
+
+# Glob patterns (relative to repo root) to scan.
+include:
+  - "**/*.tsx"
+  - "**/*.jsx"
+  - "**/*.html"
+  - "**/*.vue"
+  - "**/*.ts"   # needed for Angular component files
+
+exclude:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/*.spec.*"
+  - "**/*.test.*"
+
+# Where locators/*.md + INDEX.md + the JSON cache get written. Commit this
+# directory so drift shows up in code review.
+output: locators
+
+# Attributes treated as the highest-priority "testId" candidate type, in
+# the order checked. Add your team's convention if it's not here.
+testIdAttributes:
+  - data-testid
+  - data-test
+  - data-cy
+  - data-qa

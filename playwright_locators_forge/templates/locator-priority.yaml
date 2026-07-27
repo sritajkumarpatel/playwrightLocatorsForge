@@ -1,0 +1,20 @@
+# Global locator ranking used by `forge scan`/`forge rank` and by
+# `forge resolve` (which always returns the lowest-numbered, non-dynamic
+# candidate for an element).
+#
+# This is the one file in the locator map meant to be hand-edited. Change
+# the numbers to reorder; run `forge rank` afterwards to re-sort every
+# already-generated locators/*.md file without re-scanning source.
+#
+# Lower number = tried first, matching Playwright's own recommended order
+# (https://playwright.dev/docs/locators#quick-guide) with `id` inserted
+# above ARIA role since many teams treat ids as equally stable to testids.
+priority:
+  1: testId   # data-testid / data-test / data-cy / data-qa (see .locatorsforge.yaml)
+  2: id
+  3: role     # getByRole(role, { name })
+  4: label    # aria-label / getByLabel
+  5: name     # form "name" attribute
+  6: text     # getByText, visible text content
+  7: css      # class-based CSS selector
+  8: xpath    # last resort; also the fallback for dynamic/computed attributes
