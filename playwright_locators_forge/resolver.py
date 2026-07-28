@@ -112,3 +112,46 @@ def resolve_locator(output_dir: Path, route_or_file: str, element_name: str) -> 
         return None
     top = record.top()
     return top.value if top else None
+
+
+def list_indexed_pages(output_dir: Path) -> list[dict]:
+    """Parse INDEX.md into structured rows. Shared by `forge` and the MCP
+    server so an agent (or a human) can see what's already scanned before
+    asking for a specific element.
+    """
+    index_path = output_dir / "INDEX.md"
+    if not index_path.exists():
+        return []
+
+    pages: list[dict] = []
+    for line in index_path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|") or line.startswith("|---"):
+            continue
+        cols = [c.strip() for c in line.strip("|").split("|")]
+        if len(cols) != 5 or cols[0] == "Source file":
+            continue
+        source_file, route_hint, framework, elements, _link = cols
+        pages.append(
+            {
+                "source_file": source_file,
+                "route_hint": route_hint,
+                "framework": framework,
+                "element_count": int(elements) if elements.isdigit() else 0,
+            }
+        )
+    return pages
+
+
+def find_stale_elements(output_dir: Path) -> list[dict]:
+    """Every element flagged stale across the whole locator map, as
+    {page, element} rows. Shared by `forge check` and the MCP server's
+    freshness tool.
+    """
+    stale: list[dict] = []
+    for md_path in sorted(output_dir.rglob("*.md")):
+        if md_path.name == "INDEX.md":
+            continue
+        for name, record in parse_page(md_path).items():
+            if record.stale:
+                stale.append({"page": md_path.relative_to(output_dir).as_posix(), "element": name})
+    return stale

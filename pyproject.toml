@@ -16,10 +16,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "mcp>=1.0"]
+mcp = ["mcp>=1.0"]
 
 [project.scripts]
 forge = "playwright_locators_forge.cli:main"
+forge-mcp = "playwright_locators_forge.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["playwright_locators_forge"]

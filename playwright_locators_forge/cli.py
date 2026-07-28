@@ -20,7 +20,7 @@ from playwright_locators_forge.adapters import get_adapter
 from playwright_locators_forge.config import load_config, load_priority
 from playwright_locators_forge.models import PageResult, page_from_dict, page_to_dict
 from playwright_locators_forge.render.markdown import write_pages
-from playwright_locators_forge.resolver import parse_page, resolve_locator
+from playwright_locators_forge.resolver import find_stale_elements, resolve_locator
 
 CACHE_FILENAME = ".forge-cache.json"
 
@@ -88,18 +88,14 @@ def cmd_check(args: argparse.Namespace) -> int:
         print(f"No locators output at {cfg.output_dir}. Run `forge scan` first.", file=sys.stderr)
         return 1
 
-    stale_total = 0
-    for md_path in sorted(cfg.output_dir.rglob("*.md")):
-        if md_path.name == "INDEX.md":
-            continue
-        elements = parse_page(md_path)
-        stale = [name for name, rec in elements.items() if rec.stale]
-        if stale:
-            stale_total += len(stale)
-            print(f"{md_path.relative_to(root)}: {len(stale)} stale element(s): {', '.join(stale)}")
-
-    if stale_total:
-        print(f"\n{stale_total} stale element(s) found. Run `forge scan` to refresh.")
+    stale = find_stale_elements(cfg.output_dir)
+    if stale:
+        by_page: dict[str, list[str]] = {}
+        for row in stale:
+            by_page.setdefault(row["page"], []).append(row["element"])
+        for page, names in by_page.items():
+            print(f"{page}: {len(names)} stale element(s): {', '.join(names)}")
+        print(f"\n{len(stale)} stale element(s) found. Run `forge scan` to refresh.")
         return 1
 
     print("No drift detected.")

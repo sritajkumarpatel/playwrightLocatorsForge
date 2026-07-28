@@ -14,10 +14,13 @@ at the repo root.
 
 **Before using Playwright MCP to inspect a page or write a test:**
 
-1. Check `locators/INDEX.md` for the page/route you're working on.
-2. Open the matching `locators/<path>.md` file (or run
-   `forge resolve --page <route-or-file> --element <name>` from the repo
-   root) and use the rank-1 locator for each element you need.
+1. If the `playwright-locators` MCP server is available in your toolbox,
+   call its `list_scanned_pages` / `get_page_locators` / `resolve_locator`
+   tools directly — prefer these over opening files. Otherwise, check
+   `locators/INDEX.md` for the page/route you're working on and open the
+   matching `locators/<path>.md` file, or run `forge resolve --page
+   <route-or-file> --element <name>` from the repo root.
+2. Use the rank-1 locator for each element you need.
 3. Only fall back to a live Playwright MCP DOM snapshot when:
    - the element isn't in the locator map yet (new/unscanned UI), or
    - every candidate for that element is marked `dynamic: yes` (the
